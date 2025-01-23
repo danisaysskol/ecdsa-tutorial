@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: darkgreen;
+        }
+        .status {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .status.green {
+            color: green;
+        }
+        .status.red {
+            color: red;
+        }
+        .status.orange {
+            color: orange;
+        }
+    </style>
+</head>
+<body>
+    <h1>Server Interface</h1>
+    <form method="POST" action="/">
+        <button type="submit">Verify Signature</button>
+    </form>
+    <div class="status {{ color }}">
+        {{ status }}
+    </div>
+</body>
+</html>

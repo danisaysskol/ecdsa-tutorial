@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .status {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .status.green {
+            color: green;
+        }
+        .status.red {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Client Interface</h1>
+    <form method="POST" action="/">
+        <label for="message">Enter Message:</label>
+        <input type="text" id="message" name="message" required>
+        <button type="submit">Send to Server</button>
+    </form>
+    <div class="status {{ color }}">
+        {{ status }}
+    </div>
+</body>
+</html>
