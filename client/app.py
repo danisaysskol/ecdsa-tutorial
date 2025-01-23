@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 from ecdsa import SigningKey, NIST256p
 import os
 import requests
@@ -26,33 +26,35 @@ if not os.path.exists(private_key_path):
 with open(private_key_path, "rb") as f:
     sk = SigningKey.from_pem(f.read())
 
+# Load the public key
+with open(public_key_path, "rb") as f:
+    vk = f.read()
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    public_key = vk.decode("utf-8")
+    message = None
+    signature = None
+
     if request.method == "POST":
         message = request.form.get("message", "").encode("utf-8")
-        signature = sk.sign(message)
+        signature = sk.sign(message).hex()
 
         # Send the message and signature to the server
         server_url = "http://127.0.0.1:5001/receive"
-        data = {"message": message.hex(), "signature": signature.hex()}
+        data = {"message": message.hex(), "signature": signature}
         try:
-            response = requests.post(server_url, json=data)
-            if response.status_code == 200:
-                return render_template(
-                    "index.html", status="Message sent to server!", color="green"
-                )
-            else:
-                return render_template(
-                    "index.html",
-                    status=f"Failed to send message: {response.text}",
-                    color="red",
-                )
+            requests.post(server_url, json=data)
         except Exception as e:
-            return render_template(
-                "index.html", status=f"Error connecting to server: {e}", color="red"
-            )
-    return render_template("index.html", status=None, color=None)
+            pass
+
+    return render_template(
+        "index.html",
+        public_key=public_key,
+        message=message.decode("utf-8") if message else "",
+        signature=signature or "",
+    )
 
 
 if __name__ == "__main__":

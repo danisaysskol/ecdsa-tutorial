@@ -9,27 +9,51 @@
             font-family: Arial, sans-serif;
             margin: 20px;
         }
-        .status {
-            font-weight: bold;
-            margin-top: 20px;
+        textarea, input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            box-sizing: border-box;
         }
-        .status.green {
-            color: green;
+        .form-group {
+            margin-bottom: 20px;
         }
-        .status.red {
-            color: red;
+        .info-box {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .info-box pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
     </style>
 </head>
 <body>
     <h1>Client Interface</h1>
+
+    <div class="info-box">
+        <h2>Your Public Key:</h2>
+        <pre>{{ public_key }}</pre>
+    </div>
+
     <form method="POST" action="/">
-        <label for="message">Enter Message:</label>
-        <input type="text" id="message" name="message" required>
+        <div class="form-group">
+            <label for="message">Enter Message:</label>
+            <input type="text" id="message" name="message" required>
+        </div>
         <button type="submit">Send to Server</button>
     </form>
-    <div class="status {{ color }}">
-        {{ status }}
+
+    {% if message and signature %}
+    <div class="info-box">
+        <h2>Message Sent:</h2>
+        <p>{{ message }}</p>
+
+        <h2>Signature:</h2>
+        <pre>{{ signature }}</pre>
     </div>
+    {% endif %}
 </body>
 </html>

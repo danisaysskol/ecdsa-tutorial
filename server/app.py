@@ -15,8 +15,15 @@ def index():
         edited_signature = request.form.get("signature", "")
 
         try:
-            # Convert hex strings back to bytes
-            edited_message_bytes = bytes.fromhex(edited_message)
+            # Convert the edited message to bytes
+            try:
+                # Try interpreting it as hex
+                edited_message_bytes = bytes.fromhex(edited_message)
+            except ValueError:
+                # If it's not hex, treat it as plaintext
+                edited_message_bytes = edited_message.encode("utf-8")
+
+            # Convert the edited signature from hex to bytes
             edited_signature_bytes = bytes.fromhex(edited_signature)
 
             # Verify the signature with the edited data
@@ -40,7 +47,9 @@ def index():
         )
 
     # Initial GET request to load the interface with the latest data
-    message = latest_data["message"].hex() if latest_data["message"] else ""
+    message = (
+        latest_data["message"].decode("utf-8") if latest_data["message"] else ""
+    )
     signature = latest_data["signature"].hex() if latest_data["signature"] else ""
     return render_template("index.html", message=message, signature=signature, status=None, color=None)
 
