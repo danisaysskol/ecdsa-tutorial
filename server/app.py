@@ -6,30 +6,43 @@ app = Flask(__name__)
 # Data store for the last received message and signature
 latest_data = {"message": None, "signature": None}
 
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        # When the verify button is clicked
-        if latest_data["message"] and latest_data["signature"]:
-            is_valid = verify_signature(
-                latest_data["message"], latest_data["signature"]
-            )
+        # Retrieve edited data from the form
+        edited_message = request.form.get("message", "")
+        edited_signature = request.form.get("signature", "")
+
+        try:
+            # Convert hex strings back to bytes
+            edited_message_bytes = bytes.fromhex(edited_message)
+            edited_signature_bytes = bytes.fromhex(edited_signature)
+
+            # Verify the signature with the edited data
+            is_valid = verify_signature(edited_message_bytes, edited_signature_bytes)
             if is_valid:
-                return render_template(
-                    "index.html", status="Signature is valid!", color="green"
-                )
+                status = "Signature is valid!"
+                color = "green"
             else:
-                return render_template(
-                    "index.html", status="Invalid signature!", color="red"
-                )
-        else:
-            return render_template(
-                "index.html",
-                status="No message or signature received yet!",
-                color="orange",
-            )
-    # Initial GET request to load the interface
-    return render_template("index.html", status=None, color=None)
+                status = "Invalid signature!"
+                color = "red"
+        except Exception as e:
+            status = f"Error: {str(e)}"
+            color = "orange"
+
+        return render_template(
+            "index.html",
+            message=edited_message,
+            signature=edited_signature,
+            status=status,
+            color=color,
+        )
+
+    # Initial GET request to load the interface with the latest data
+    message = latest_data["message"].hex() if latest_data["message"] else ""
+    signature = latest_data["signature"].hex() if latest_data["signature"] else ""
+    return render_template("index.html", message=message, signature=signature, status=None, color=None)
 
 
 @app.route("/receive", methods=["POST"])

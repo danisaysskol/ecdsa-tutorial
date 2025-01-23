@@ -25,15 +25,40 @@
         .status.orange {
             color: orange;
         }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+        }
+        textarea, input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
     <h1>Server Interface</h1>
+
     <form method="POST" action="/">
+        <div class="form-group">
+            <label for="message">Message (hex):</label>
+            <textarea id="message" name="message" rows="3">{{ message }}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="signature">Signature (hex):</label>
+            <textarea id="signature" name="signature" rows="3">{{ signature }}</textarea>
+        </div>
         <button type="submit">Verify Signature</button>
     </form>
+
+    {% if status %}
     <div class="status {{ color }}">
         {{ status }}
     </div>
+    {% endif %}
 </body>
 </html>
