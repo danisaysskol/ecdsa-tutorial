@@ -1,10 +1,15 @@
 from scapy.all import *
-from pollards_rho import pollards_rho_ec, pollards_rho_mod
+from pollards_rho import apply_pollards
+
+# Flag to indicate if the public key has been found
+key_found = False
 
 # Function to process a captured packet and check for the public key
 def process_packet(packet):
+    global key_found  # Refer to the global key_found variable
+    
     print(f"Captured packet: {packet.summary()}")
-    if packet.haslayer(TCP) and packet.haslayer(Raw):
+    if packet.haslayer(TCP) and packet.haslayer(Raw) and not key_found:
         payload = packet[Raw].load.decode(errors="ignore")
         print(f"Payload: {payload[:100]}...")  # Print the first 100 characters of the payload for inspection
 
@@ -22,29 +27,35 @@ def process_packet(packet):
             print("Public Key Found!")
             print(public_key)
             handle_public_key(public_key)
+            key_found = True  # Set the flag to True to stop further packet capture
 
 # Function to handle the public key found in the packet
 def handle_public_key(public_key):
     # You can implement any logic here to process the public key
     print("Processing the public key...")
-        # Analyze the EC public key
-    print("Analyzing the EC public key:")
-    print(pollards_rho_ec(public_key))
+    
+    private_key = apply_pollards(public_key)
+    print(f"Private key found: {private_key}")
 
-    # Example use of modular Pollard's Rho
-    print("\nModular Pollard's rho example:")
-    n = 8051
-    factor = pollards_rho_mod(n)
-    if factor:
-        print(f"Found a factor of {n}: {factor}")
-    else:
-        print(f"Failed to find a factor of {n}")
-
+# Stop sniffing once a public key is found
+def stop_sniffing(packet):
+    return key_found  # If the key is found, stop sniffing
 
 # Start sniffing the network for packets on the loopback interface
 def capture_packets():
     print("Starting to capture HTTP packets...")
-    sniff(prn=process_packet, store=0, filter="tcp port 5000", iface="lo")
+    
+    try:
+        sniff(prn=process_packet, store=0, filter="tcp port 5000", iface="lo", stop_filter=stop_sniffing)
+    except Exception as e:
+        print(f"Error occurred while sniffing packets: {e}")
+    finally:
+        print("Closing sniffing session...")
+        
+        # Explicitly clean up Scapy's sniffing socket
+        if hasattr(conf, 'sniff_socket') and conf.sniff_socket:
+            print("Closing internal sniff socket...")
+            conf.sniff_socket.close()
 
 # Run the packet capture
 if __name__ == "__main__":
