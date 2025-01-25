@@ -56,6 +56,12 @@ def index():
         signature=signature or "",
     )
 
+@app.route("/public_key", methods=["GET"])
+def public_key():
+    # Return the public key in response to a GET request
+    return vk.decode("utf-8")
+
+
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

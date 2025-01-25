@@ -1,11 +1,7 @@
 import base64
 import random
-import binascii
-
-# Use cryptography for key handling
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 def decode_der_public_key(encoded_pubkey: str):
     """

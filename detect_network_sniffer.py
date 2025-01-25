@@ -1,15 +1,38 @@
 import os
+import sys
 import psutil
 import subprocess
 import time
+import dotenv
+from openai import OpenAI
 
-# Suspicious keywords to look for in Python scripts
-SUSPICIOUS_PATTERNS = [
-    "pollards",
-]
+# Load environment variables
+dotenv.load_dotenv()
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+# Function to analyze code using ChatGPT
+def analyze_code_with_chatgpt(code):
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a security expert analyzing code for potential ECDSA attacks."},
+                {
+                    "role": "user", 
+                    "content": f"Analyze the following code and determine ONLY if it contains an attack on ECDSA (like Pollard's rho). Respond with ONLY YES or NO:\n\n{code}"
+                }
+            ]
+        )
+        response = completion.choices[0].message.content.strip().upper()
+        return response == "YES"
+    except Exception as e:
+        print(f"[!] Error analyzing code with ChatGPT: {e}")
+        return False
 
 # Function to identify processes sniffing the network
-def find_sniffing_processes():
+def find_sniffing_processes(scanned_files):
     print("[*] Detecting processes using raw sockets or in promiscuous mode...")
     sniffing_processes = []
     current_pid = os.getpid()  # Get the PID of this script
@@ -23,8 +46,7 @@ def find_sniffing_processes():
         # Check running processes for raw socket usage
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
-                # Exclude this script itself
-                if proc.info['pid'] == current_pid:
+                if proc.info['pid'] == current_pid:  # Skip this script
                     continue
 
                 # Look for Python processes
@@ -32,16 +54,12 @@ def find_sniffing_processes():
                     cmdline = " ".join(proc.info['cmdline'])
                     print(f"[*] Checking process: PID={proc.info['pid']}, CMDLINE={cmdline}")
 
-                    # Detect suspicious processes by keywords
-                    if any(keyword in cmdline for keyword in SUSPICIOUS_PATTERNS):
-                        print(f"[!] Suspicious process detected: PID={proc.info['pid']}, CMDLINE={cmdline}")
-                        sniffing_processes.append(proc.info)
-
-                    # Check script files for suspicious patterns
+                    # Check script files
                     for arg in proc.info['cmdline']:
                         if arg.endswith(".py") and os.path.isfile(arg):
-                            if scan_file_and_dependencies(arg):
-                                print(f"[!] Malicious code detected in script: {arg}")
+                            suspicious_files = check_suspicious_files(arg, scanned_files)
+                            if suspicious_files:
+                                proc.info['suspicious_files'] = suspicious_files
                                 sniffing_processes.append(proc.info)
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
@@ -50,44 +68,36 @@ def find_sniffing_processes():
 
     return sniffing_processes
 
-# Function to scan a file and its dependencies for suspicious patterns
-def scan_file_and_dependencies(file_path, scanned_files=None):
-    if scanned_files is None:
-        scanned_files = set()
-
-    # Avoid re-scanning files
+# Function to check for suspicious files
+def check_suspicious_files(file_path, scanned_files):
     if file_path in scanned_files:
-        return False
+        return []  # Skip already scanned files
 
-    scanned_files.add(file_path)
+    scanned_files.add(file_path)  # Mark file as scanned
     print(f"[*] Scanning file: {file_path}")
+    suspicious_files = []
 
     try:
         with open(file_path, 'r') as file:
-            code = file.readlines()
+            code = file.read()
 
-        suspicious_found = False
-
-        # Scan for suspicious patterns in the current file
-        for line_no, line in enumerate(code, start=1):
-            if any(pattern in line for pattern in SUSPICIOUS_PATTERNS):
-                print(f"[!] Found suspicious pattern in {file_path} (line {line_no}): {line.strip()}")
-                suspicious_found = True
+        # Use ChatGPT to analyze the code for potential ECDSA attacks
+        if analyze_code_with_chatgpt(code):
+            print(f"[!] ChatGPT detected potential ECDSA attack in {file_path}")
+            suspicious_files.append(file_path)
 
         # Recursively analyze imported modules
-        for line in code:
+        for line in code.splitlines():
             if line.strip().startswith("import") or line.strip().startswith("from"):
                 module_name = extract_module_name(line)
                 if module_name:
                     module_path = resolve_module_path(module_name, file_path)
                     if module_path and os.path.isfile(module_path):
-                        if scan_file_and_dependencies(module_path, scanned_files):
-                            suspicious_found = True
-
-        return suspicious_found
+                        suspicious_files.extend(check_suspicious_files(module_path, scanned_files))
     except Exception as e:
         print(f"[!] Could not scan file {file_path}: {e}")
-        return False
+    
+    return suspicious_files
 
 # Function to extract module name from an import statement
 def extract_module_name(import_line):
@@ -108,7 +118,7 @@ def resolve_module_path(module_name, base_file):
         if os.path.isfile(module_file):
             return module_file
 
-        # If the module isn't in the same directory, check sys.path or site-packages
+        # If not found in the same directory, check sys.path
         for path in sys.path:
             potential_path = os.path.join(path, f"{module_name}.py")
             if os.path.isfile(potential_path):
@@ -128,14 +138,14 @@ def kill_process(pid):
 # Continuous monitoring loop
 def monitor_sniffers():
     print("[*] Starting continuous monitoring of network sniffers...")
-    monitored_pids = set()  # Track already processed PIDs to avoid redundant checks
+    monitored_pids = set()  # Track already processed PIDs
+    scanned_files = set()   # Track already scanned files
 
     while True:
         try:
             # Detect sniffing processes
-            sniffing_processes = find_sniffing_processes()
+            sniffing_processes = find_sniffing_processes(scanned_files)
 
-            # Analyze and handle each suspicious process
             for proc in sniffing_processes:
                 pid = proc.get('pid')
                 cmdline = " ".join(proc.get('cmdline', []))
@@ -143,19 +153,16 @@ def monitor_sniffers():
                 if pid not in monitored_pids:
                     print(f"[*] Processing suspicious process: PID={pid}, CMDLINE={cmdline}")
 
-                    # If malicious activity is detected, terminate the process
-                    if scan_file_and_dependencies(proc['cmdline'][-1]):
+                    # Kill process if suspicious files are detected
+                    if proc.get('suspicious_files'):
                         print(f"[!] Malicious activity detected in process PID={pid}. Terminating...")
                         kill_process(pid)
                     else:
                         print(f"[*] No suspicious activity detected in process PID={pid}.")
 
-                    # Mark this process as handled
-                    monitored_pids.add(pid)
+                    monitored_pids.add(pid)  # Mark process as handled
 
-            # Sleep for a short period before rechecking
-            time.sleep(5)
-
+            time.sleep(15)  # Pause before rechecking
         except KeyboardInterrupt:
             print("[*] Exiting continuous monitoring...")
             break
@@ -165,4 +172,3 @@ def monitor_sniffers():
 # Entry point
 if __name__ == "__main__":
     monitor_sniffers()
-"sniff", "Raw", "promiscuous", 

@@ -1,1 +1,5 @@
 ecdsa_venv
+.env
+__pychache__/
+client/__pychache__/
+server/__pychache__/
