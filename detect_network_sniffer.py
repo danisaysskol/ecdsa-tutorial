@@ -6,10 +6,8 @@ import time
 import dotenv
 from openai import OpenAI
 
-# Load environment variables
 dotenv.load_dotenv()
 
-# Initialize OpenAI client
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 # Function to analyze code using ChatGPT
@@ -35,7 +33,7 @@ def analyze_code_with_chatgpt(code):
 def find_sniffing_processes(scanned_files):
     print("[*] Detecting processes using raw sockets or in promiscuous mode...")
     sniffing_processes = []
-    current_pid = os.getpid()  # Get the PID of this script
+    current_pid = os.getpid()  
 
     try:
         # Check for interfaces in promiscuous mode
@@ -81,7 +79,6 @@ def check_suspicious_files(file_path, scanned_files):
         with open(file_path, 'r') as file:
             code = file.read()
 
-        # Use ChatGPT to analyze the code for potential ECDSA attacks
         if analyze_code_with_chatgpt(code):
             print(f"[!] ChatGPT detected potential ECDSA attack in {file_path}")
             suspicious_files.append(file_path)
@@ -143,7 +140,6 @@ def monitor_sniffers():
 
     while True:
         try:
-            # Detect sniffing processes
             sniffing_processes = find_sniffing_processes(scanned_files)
 
             for proc in sniffing_processes:
@@ -162,7 +158,7 @@ def monitor_sniffers():
 
                     monitored_pids.add(pid)  # Mark process as handled
 
-            time.sleep(15)  # Pause before rechecking
+            time.sleep(15)
         except KeyboardInterrupt:
             print("[*] Exiting continuous monitoring...")
             break
