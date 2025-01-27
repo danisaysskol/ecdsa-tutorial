@@ -60,3 +60,8 @@ Run the following scripts in order:
 
 Don't forget to include the `.env` file in the project.
 
+## Activity Diagram
+
+Below is the activity diagram for the ECDSA and Pollard's Rho simulation in this code:
+
+![Activity Diagram](Activity_Diagram.png)
